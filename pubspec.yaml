@@ -11,6 +11,7 @@ dependencies:
   web: ^1.1.1
   image: ^4.2.0         # For image processing (Dart native, works well)
   image_picker: ^1.1.2  # To pick images from gallery or camera
+  path_provider: ^2.1.5
 
 dev_dependencies:
   build_runner: ^2.4.15

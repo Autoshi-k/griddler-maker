@@ -1,10 +1,13 @@
 import 'dart:io';
 import 'dart:math' as math;
+import 'dart:typed_data';
 import 'package:flutter/material.dart';
 import 'package:griddler_maker/widgets/ratio_slider.dart';
 import 'package:image_picker/image_picker.dart';
 import 'package:image/image.dart' as img;
-
+import 'dart:ui' as ui;
+import 'package:flutter/rendering.dart';
+import 'package:path_provider/path_provider.dart';
 import '../widgets/grid_painter.dart';
 import '../widgets/pixel_slider.dart';
 
@@ -25,7 +28,11 @@ class _ImageProcessorState extends State<ImageProcessor> {
   img.Image? _grayImage;
   PixelateResult? _pixilatedResult;
   int _pixelSize = 20; // default pixel size
-  int _pixelImageheight = 20;
+  int _pixelImageHeight = 20;
+  final int _resize = 20;
+  final GlobalKey _puzzleKey = GlobalKey();
+
+
   double _grayscaleLimit = 0.3; // default pixel size
   double _progress = 0.0;
   bool _loading = false;
@@ -38,6 +45,14 @@ class _ImageProcessorState extends State<ImageProcessor> {
       });
     }
   }
+
+  // Future<Uint8List> capturePuzzle(GlobalKey key) async {
+  //   RenderRepaintBoundary boundary =
+  //   key.currentContext!.findRenderObject() as RenderRepaintBoundary;
+  //   ui.Image image = await boundary.toImage(pixelRatio: 3.0);
+  //   ByteData? byteData = await image.toByteData(format: ui.ImageByteFormat.png);
+  //   return byteData!.buffer.asUint8List();
+  // }
 
   Future<void> _startProcessingImage() async {
     if (_imageFile != null) {
@@ -70,7 +85,7 @@ class _ImageProcessorState extends State<ImageProcessor> {
   PixelateResult _pixelate(img.Image src, int pixelSize) {
     int height = (src.height/(src.width / pixelSize)).toInt();
     setState(() {
-      _pixelImageheight = height;
+      _pixelImageHeight = height;
     });
     print('_pixilate ${src.width} x ${src.height} to $pixelSize * $height');
     img.Image result = img.Image(width: pixelSize, height: height);
@@ -90,13 +105,7 @@ class _ImageProcessorState extends State<ImageProcessor> {
 
         double pixelColorCombined = 0;
         for (int origY = y*rangeY; origY < math.min((y+1)*rangeY, src.height); origY++) {
-          if (y == 20) {
-            print('[#$y-$x-$origY] running pixel');
-          }
           for (int origX = x*rangeX; origX < math.min((x+1)*rangeX, src.width); origX++) {
-            if (y == 19 && origY == 957) {
-              print('[#$y-$origY-$origX] running pixel');
-            }
             // Take the color of the top-left pixel of the block
             img.Pixel pixel = src.getPixel(origX, origY);
             img.Color color = pixel.clone();
@@ -126,6 +135,71 @@ class _ImageProcessorState extends State<ImageProcessor> {
     return PixelateResult(result, debugMatrix);
   }
 
+  List<List<int>> computeRowHints(img.Image image) {
+    final hints = <List<int>>[];
+    for (int y = 0; y < image.height; y++) {
+      final rowHints = <int>[];
+      int count = 0;
+      for (int x = 0; x < image.width; x++) {
+        final pixel = image.getPixel(x, y);
+        final isFilled = pixel.r == 0; // black
+        if (isFilled) {
+          count++;
+        } else if (count > 0) {
+          rowHints.add(count);
+          count = 0;
+        }
+      }
+      if (count > 0) rowHints.add(count);
+      hints.add(rowHints.isEmpty ? [0] : rowHints);
+    }
+    return hints;
+  }
+
+  List<List<int>> computeColHints(img.Image image) {
+    final hints = <List<int>>[];
+    for (int x = 0; x < image.width; x++) {
+      final colHints = <int>[];
+      int count = 0;
+      for (int y = 0; y < image.height; y++) {
+        final pixel = image.getPixel(x, y);
+        final isFilled = pixel.r == 0; // black
+        if (isFilled) {
+          count++;
+        } else if (count > 0) {
+          colHints.add(count);
+          count = 0;
+        }
+      }
+      if (count > 0) colHints.add(count);
+      hints.add(colHints.isEmpty ? [0] : colHints);
+    }
+    return hints;
+  }
+
+  Future<Uint8List> capturePuzzle(GlobalKey key) async {
+    RenderRepaintBoundary boundary =
+    key.currentContext!.findRenderObject() as RenderRepaintBoundary;
+    ui.Image image = await boundary.toImage(pixelRatio: 3.0);
+    ByteData? byteData = await image.toByteData(format: ui.ImageByteFormat.png);
+    return byteData!.buffer.asUint8List();
+  }
+
+  Future<void> _savePuzzleImage() async {
+    if (_puzzleKey.currentContext == null) return;
+
+    Uint8List pngBytes = await capturePuzzle(_puzzleKey);
+
+    final directory = await getDownloadsDirectory();
+    final filePath = '${directory?.path}/griddler_${DateTime.now().millisecondsSinceEpoch}.png';
+    final file = File(filePath);
+    await file.writeAsBytes(pngBytes);
+
+    ScaffoldMessenger.of(context).showSnackBar(
+      SnackBar(content: Text('Saved puzzle to $filePath')),
+    );
+  }
+
   @override
   Widget build(BuildContext context) {
     return Scaffold(
@@ -147,45 +221,90 @@ class _ImageProcessorState extends State<ImageProcessor> {
                 LayoutBuilder(
                   builder: (context, constraints) {
                     if (_grayImage != null) {
-                      return Image.memory(img.encodePng(img.copyResize(_grayImage!, width: (_pixelSize*10), height: (_pixelImageheight*10))));
+                      return Image.memory(img.encodePng(img.copyResize(_grayImage!, width: (_pixelSize*_resize), height: (_pixelImageHeight*_resize))));
                     } else {
                       return Container();
                     }
                   }
                 ),
-                LayoutBuilder(
-                  builder: (context, constraints) {
-                    if (_pixilatedResult != null) {
-                      final PixelateResult pixilated = _pixilatedResult!;
-                      final widgetImage =
-                      Image.memory(img.encodePng(img.copyResize(pixilated.image, width: (_pixelSize*10), height: (_pixelImageheight*10))));
+                // RepaintBoundary(
+                //   child: LayoutBuilder(
+                //       builder: (context, constraints) {
+                //         if (_pixilatedResult != null) {
+                //           final PixelateResult pixelated = _pixilatedResult!;
+                //           print('width: $_pixelSize => ${_pixelSize*_resize} height: $_pixelImageHeight => ${_pixelImageHeight*_resize}');
+                //           final widgetImage =
+                //           Image.memory(img.encodePng(img.copyResize(pixelated.image, width: (_pixelSize*_resize), height: (_pixelImageHeight*_resize))));
+                //
+                //           return Stack(
+                //             alignment: Alignment.center,
+                //             children: [
+                //               widgetImage, // the pixelated image
+                //               Positioned.fill(
+                //                 child: CustomPaint(
+                //                   painter: GridPainter(
+                //                     image: pixelated.image,
+                //                     rowHints: computeRowHints(pixelated.image),
+                //                     colHints: computeColHints(pixelated.image),
+                //                     rows: _pixelImageHeight,
+                //                     cols: _pixelSize,
+                //                     lineColor: Colors.black,
+                //                   ),
+                //                 ),
+                //               ),
+                //             ],
+                //           );
+                //         } else {
+                //           return Container();
+                //         }
+                //       }
+                //   )
+                // ),
+                RepaintBoundary(
+                    key: _puzzleKey,
+                    child: LayoutBuilder(
+                        builder: (context, constraints) {
+                          if (_pixilatedResult != null) {
+                            final PixelateResult pixelated = _pixilatedResult!;
+                            // print('width: $_pixelSize => ${_pixelSize *
+                            //     _resize} height: $_pixelImageHeight => ${_pixelImageHeight *
+                            //     _resize}');
+                            // final widgetImage =
+                            // Image.memory(img.encodePng(img.copyResize(
+                            //     pixelated.image, width: (_pixelSize * _resize),
+                            //     height: (_pixelImageHeight * _resize))));
 
-                      final pixelSize = _pixelSize;
-                      final rows =
-                      (pixilated.image.height / pixelSize).ceil();
-                      final cols =
-                      (pixilated.image.width / pixelSize).ceil();
+                            final rowHints = computeRowHints(pixelated.image);
+                            final colHints = computeColHints(pixelated.image);
+                            try {
+                              final num shit = GridPainter.getHintsPadding(rowHints, _resize);
+                              print('base size: ${_pixelSize * _resize}, additional size: $shit');
+                            } catch (e) {
+                              print('got help me $e');
+                            }
 
-                      return Stack(
-                        alignment: Alignment.center,
-                        children: [
-                          widgetImage, // the pixelated image
-                          Positioned.fill(
-                            child: CustomPaint(
-                              painter: GridPainter(
-                                image: pixilated.image,
-                                rows: rows,
-                                cols: cols,
-                                lineColor: Colors.black54,
-                              ),
-                            ),
-                          ),
-                        ],
-                      );
-                    } else {
-                      return Container();
-                    }
-                  }
+                            return Positioned.fill(
+                                child: CustomPaint(
+                                  size: Size(
+                                     ((_pixelSize * _resize) + GridPainter.getHintsPadding(rowHints, _resize)).toDouble(),
+                                     ((_pixelImageHeight * _resize) + GridPainter.getHintsPadding(colHints, _resize)).toDouble(),
+                                  ),
+                                  painter: GridPainter(
+                                    image: pixelated.image,
+                                    rowHints: rowHints,
+                                    colHints: colHints,
+                                    cellSize: _resize.toDouble(),
+                                    rows: _pixelImageHeight,
+                                    cols: _pixelSize,
+                                    lineColor: Colors.black,
+                                  ),
+                                ),
+                              );
+                          } else {
+                            return Container();
+                          }
+                        }
+                    )
                 ),
                 Expanded(
                     child: (_pixilatedResult != null) ? buildDebugTable(_pixilatedResult!.debugMatrix, _grayscaleLimit) : Container()
@@ -230,6 +349,10 @@ class _ImageProcessorState extends State<ImageProcessor> {
                     });
                   },
                   child: Text("Reset"),
+                ),
+                ElevatedButton(
+                  onPressed: _savePuzzleImage,
+                  child: Text("Save Puzzle"),
                 ),
               ],
             ),
