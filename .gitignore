@@ -1,0 +1,33 @@
+# Generated files
+.dart_tool/
+.flutter-plugins
+.flutter-plugins-dependencies
+.packages
+.idea/
+build/
+*.iml
+*.lock
+
+# Local configuration
+local.properties
+.DS_Store
+Thumbs.db
+
+# Android-specific
+android/.gradle/
+android/local.properties
+android/*.iml
+android/build/
+android/app/build/
+android/app/*.iml
+
+# iOS-specific
+ios/Runner.xcworkspace/xcuserdata/
+ios/Runner.xcworkspace/xcshareddata/
+ios/Flutter/Generated.xcconfig
+ios/build/
+
+# Other
+coverage/
+*.log
+*.g.dart # Generated code, e.g., from build_runner
