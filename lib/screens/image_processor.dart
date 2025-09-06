@@ -24,7 +24,8 @@ class _ImageProcessorState extends State<ImageProcessor> {
   File? _imageFile;
   img.Image? _grayImage;
   PixelateResult? _pixilatedResult;
-  double _pixelSize = 20; // default pixel size
+  int _pixelSize = 20; // default pixel size
+  int _pixelImageheight = 20;
   double _grayscaleLimit = 0.3; // default pixel size
   double _progress = 0.0;
   bool _loading = false;
@@ -56,7 +57,7 @@ class _ImageProcessorState extends State<ImageProcessor> {
       img.Image grayscale = img.grayscale(image);
 
       // 2. Pixelate
-      PixelateResult pixelated = _pixelate(grayscale, _pixelSize.toInt());
+      PixelateResult pixelated = _pixelate(grayscale, _pixelSize);
 
       setState(() {
         _grayImage = grayscale;
@@ -67,24 +68,31 @@ class _ImageProcessorState extends State<ImageProcessor> {
   }
 
   PixelateResult _pixelate(img.Image src, int pixelSize) {
-    print('_pixilate ${src.height} x ${src.width} to $pixelSize * $pixelSize');
-    img.Image result = img.Image(width: pixelSize, height: pixelSize);
-    int rangeY = ( src.height / pixelSize).round();
-    int rangeX = ( src.width / pixelSize).round();
+    int height = (src.height/(src.width / pixelSize)).toInt();
+    setState(() {
+      _pixelImageheight = height;
+    });
+    print('_pixilate ${src.width} x ${src.height} to $pixelSize * $height');
+    img.Image result = img.Image(width: pixelSize, height: height);
+    int rangeX = (src.width / pixelSize).round();
+    int rangeY = (src.height / height).round();
 
     print('any pixel will be $rangeX x $rangeY');
 
     List<List<List<double>>> debugMatrix = List.generate(
-      pixelSize,
+      height,
           (_) => List.filled(pixelSize, [0, 0]),
     );
 
-    for (int y = 0; y < pixelSize; y++) {
+    for (int y = 0; y < height; y++) {
       for (int x = 0; x < pixelSize; x++) {
         // In a pixel for the new image
 
         double pixelColorCombined = 0;
         for (int origY = y*rangeY; origY < math.min((y+1)*rangeY, src.height); origY++) {
+          if (y == 20) {
+            print('[#$y-$x-$origY] running pixel');
+          }
           for (int origX = x*rangeX; origX < math.min((x+1)*rangeX, src.width); origX++) {
             if (y == 19 && origY == 957) {
               print('[#$y-$origY-$origX] running pixel');
@@ -110,9 +118,7 @@ class _ImageProcessorState extends State<ImageProcessor> {
         debugMatrix[y][x] = [avg, pixelColorCombined];
 
         setState(() {
-          // double shit = 1 / (pixelSize * pixelSize);
-          // print('increase progress value $_progress by $shit');
-          _progress += 1 / (pixelSize * pixelSize);
+          _progress += 1 / (pixelSize * height);
         });
       }
     }
@@ -141,7 +147,7 @@ class _ImageProcessorState extends State<ImageProcessor> {
                 LayoutBuilder(
                   builder: (context, constraints) {
                     if (_grayImage != null) {
-                      return Image.memory(img.encodePng(img.copyResize(_grayImage!, width: (_pixelSize*10).floor(), height: (_pixelSize*10).floor())));
+                      return Image.memory(img.encodePng(img.copyResize(_grayImage!, width: (_pixelSize*10), height: (_pixelImageheight*10))));
                     } else {
                       return Container();
                     }
@@ -152,9 +158,9 @@ class _ImageProcessorState extends State<ImageProcessor> {
                     if (_pixilatedResult != null) {
                       final PixelateResult pixilated = _pixilatedResult!;
                       final widgetImage =
-                      Image.memory(img.encodePng(img.copyResize(pixilated.image, width: (_pixelSize*10).floor(), height: (_pixelSize*10).floor())));
+                      Image.memory(img.encodePng(img.copyResize(pixilated.image, width: (_pixelSize*10), height: (_pixelImageheight*10))));
 
-                      final pixelSize = _pixelSize.toInt();
+                      final pixelSize = _pixelSize;
                       final rows =
                       (pixilated.image.height / pixelSize).ceil();
                       final cols =
@@ -182,17 +188,17 @@ class _ImageProcessorState extends State<ImageProcessor> {
                   }
                 ),
                 Expanded(
-                    child: (_pixilatedResult != null) ? buildDebugTable(_pixilatedResult!.debugMatrix) : Container()
+                    child: (_pixilatedResult != null) ? buildDebugTable(_pixilatedResult!.debugMatrix, _grayscaleLimit) : Container()
                 ),
               ]
             ),
             SizedBox(height: 20),
             // Slider for pixel size
             PixelSlider(
-              value: _pixelSize,
+              value: _pixelSize.toDouble(),
               onChanged: (val) {
                 setState(() {
-                  _pixelSize = val;
+                  _pixelSize = val.toInt();
                 });
               },
             ),
@@ -234,15 +240,16 @@ class _ImageProcessorState extends State<ImageProcessor> {
   }
 }
 
-Widget buildDebugTable(List<List<List<double>>> matrix) {
+Widget buildDebugTable(List<List<List<double>>> matrix, double grayscaleLimit) {
   return SingleChildScrollView(
     scrollDirection: Axis.horizontal,
     child: Column(
       crossAxisAlignment: CrossAxisAlignment.start,
-      children: matrix.map((row) {
+      children: matrix.asMap().entries.map((rowEntry) {
         return Row(
-          children: row.map((cell) {
+          children: rowEntry.value.asMap().entries.map((cellEntry) {
             // Convert the double list into a readable string
+            List<double> cell = cellEntry.value;
             final value = cell.map((v) => v.toStringAsFixed(2)).join(", ");
 
             try {
@@ -264,6 +271,7 @@ Widget buildDebugTable(List<List<List<double>>> matrix) {
               message: value, // show on hover
               waitDuration: const Duration(milliseconds: 300),
               child: Container(
+                child: Text((cellEntry.key + (matrix.length*rowEntry.key)).toString(), style: TextStyle(fontSize: 8, fontWeight: cell[0] < grayscaleLimit ? FontWeight.w800 : FontWeight.normal)),
                 width: 24,
                 height: 24,
                 margin: const EdgeInsets.all(1),

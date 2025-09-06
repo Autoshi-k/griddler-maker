@@ -16,7 +16,6 @@ class GridPainter extends CustomPainter {
 
   @override
   void paint(Canvas canvas, Size size) {
-    print(size);
     final borderPaint = Paint()
       ..color = lineColor
       ..strokeWidth = 1;

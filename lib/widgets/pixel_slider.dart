@@ -11,7 +11,7 @@ class PixelSlider extends StatelessWidget {
     required this.value,
     required this.onChanged,
     this.min = 5,
-    this.max = 50,
+    this.max = 35,
   });
 
   @override
