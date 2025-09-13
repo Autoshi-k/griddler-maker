@@ -8,8 +8,10 @@ import 'package:image/image.dart' as img;
 import 'dart:ui' as ui;
 import 'package:flutter/rendering.dart';
 import 'package:path_provider/path_provider.dart';
+
 import '../widgets/grid_painter.dart';
 import '../widgets/pixel_slider.dart';
+import './components/image_preview.dart';
 
 class PixelateResult {
   final img.Image image;
@@ -203,77 +205,34 @@ class _ImageProcessorState extends State<ImageProcessor> {
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      appBar: AppBar(title: Text("Image Pixelator")),
-      body: Center(
-        child: ListView(
-          shrinkWrap: true,
+        appBar: AppBar(title: Text("Image Pixelator")),
+        body: Center(
+          child: Row(
           children: [
-            _imageFile == null
-            ? Text("Pick an image")
-            : _loading
-            ? LinearProgressIndicator(
-                value: _progress,
-                semanticsLabel: 'Processing Image...',
-              )
-            : Row(
-              mainAxisAlignment: MainAxisAlignment.center,
+            Column(
               children: [
-                LayoutBuilder(
-                  builder: (context, constraints) {
-                    if (_grayImage != null) {
-                      return Image.memory(img.encodePng(img.copyResize(_grayImage!, width: (_pixelSize*_resize), height: (_pixelImageHeight*_resize))));
-                    } else {
-                      return Container();
-                    }
-                  }
-                ),
-                // RepaintBoundary(
-                //   child: LayoutBuilder(
-                //       builder: (context, constraints) {
-                //         if (_pixilatedResult != null) {
-                //           final PixelateResult pixelated = _pixilatedResult!;
-                //           print('width: $_pixelSize => ${_pixelSize*_resize} height: $_pixelImageHeight => ${_pixelImageHeight*_resize}');
-                //           final widgetImage =
-                //           Image.memory(img.encodePng(img.copyResize(pixelated.image, width: (_pixelSize*_resize), height: (_pixelImageHeight*_resize))));
-                //
-                //           return Stack(
-                //             alignment: Alignment.center,
-                //             children: [
-                //               widgetImage, // the pixelated image
-                //               Positioned.fill(
-                //                 child: CustomPaint(
-                //                   painter: GridPainter(
-                //                     image: pixelated.image,
-                //                     rowHints: computeRowHints(pixelated.image),
-                //                     colHints: computeColHints(pixelated.image),
-                //                     rows: _pixelImageHeight,
-                //                     cols: _pixelSize,
-                //                     lineColor: Colors.black,
-                //                   ),
-                //                 ),
-                //               ),
-                //             ],
-                //           );
-                //         } else {
-                //           return Container();
-                //         }
-                //       }
-                //   )
-                // ),
-                RepaintBoundary(
+                ImagePreview(image: _grayImage, width: (_pixelSize*_resize).toDouble(), placeholder: "original"),
+                ImagePreview(image: _grayImage, width: (_pixelSize*_resize).toDouble(), placeholder: "filtered"),
+                ImagePreview(image: _grayImage, width: (_pixelSize*_resize).toDouble(), placeholder: "black & white"),
+              ]
+            ),
+            Column(
+              crossAxisAlignment: CrossAxisAlignment.end,
+              spacing: 10,
+              children: [
+                _imageFile == null
+                    ? Text("Pick an image")
+                    : _loading
+                    ? LinearProgressIndicator(
+                  value: _progress,
+                  semanticsLabel: 'Processing Image...',
+                )
+                    : RepaintBoundary(
                     key: _puzzleKey,
                     child: LayoutBuilder(
                         builder: (context, constraints) {
                           if (_pixilatedResult != null) {
                             final PixelateResult pixelated = _pixilatedResult!;
-                            // print('width: $_pixelSize => ${_pixelSize *
-                            //     _resize} height: $_pixelImageHeight => ${_pixelImageHeight *
-                            //     _resize}');
-                            // final widgetImage =
-                            // Image.memory(img.encodePng(img.copyResize(
-                            //     pixelated.image, width: (_pixelSize * _resize),
-                            //     height: (_pixelImageHeight * _resize))));
-
                             final rowHints = computeRowHints(pixelated.image);
                             final colHints = computeColHints(pixelated.image);
                             try {
@@ -283,11 +242,12 @@ class _ImageProcessorState extends State<ImageProcessor> {
                               print('got help me $e');
                             }
 
-                            return Positioned.fill(
+                            return
+                              Positioned.fill(
                                 child: CustomPaint(
                                   size: Size(
-                                     ((_pixelSize * _resize) + GridPainter.getHintsPadding(rowHints, _resize)).toDouble(),
-                                     ((_pixelImageHeight * _resize) + GridPainter.getHintsPadding(colHints, _resize)).toDouble(),
+                                    ((_pixelSize * _resize) + GridPainter.getHintsPadding(rowHints, _resize)).toDouble(),
+                                    ((_pixelImageHeight * _resize) + GridPainter.getHintsPadding(colHints, _resize)).toDouble(),
                                   ),
                                   painter: GridPainter(
                                     image: pixelated.image,
@@ -306,32 +266,74 @@ class _ImageProcessorState extends State<ImageProcessor> {
                         }
                     )
                 ),
+                RepaintBoundary(
+                  child: LayoutBuilder(
+                    builder: (context, constraints) {
+                      if (_pixilatedResult != null) {
+                        final PixelateResult pixelated = _pixilatedResult!;
+                        print('width: $_pixelSize => ${_pixelSize*_resize} height: $_pixelImageHeight => ${_pixelImageHeight*_resize}');
+                        final widgetImage =
+                        Image.memory(img.encodePng(img.copyResize(pixelated.image, width: (_pixelSize*_resize), height: (_pixelImageHeight*_resize))));
+
+                        return Stack(
+                          alignment: Alignment.bottomLeft,
+                          children: [
+                            widgetImage, // the pixelated image
+                            Positioned.fill(
+                              child: CustomPaint(
+                                painter: GridPainter(
+                                  image: pixelated.image,
+                                  cellSize: _resize.toDouble(),
+                                  rowHints: [],
+                                  colHints: [],
+                                  rows: _pixelImageHeight,
+                                  cols: _pixelSize,
+                                  lineColor: Colors.black,
+                                )
+                                  //
+                                  // image: pixelated.image,
+                                  // rowHints: computeRowHints(pixelated.image),
+                                  // colHints: computeColHints(pixelated.image),
+                                  // rows: _pixelImageHeight,
+                                  // cols: _pixelSize,
+                                  // lineColor: Colors.black,
+                                  // cellSize:  _resize.toDouble(),
+                                ),
+                              ),
+                          ]
+                        );
+                      } else {
+                        return Container();
+                      }
+                    }
+                  )
+                ),
+              ],
+            ),
+            Column(
+              mainAxisAlignment: MainAxisAlignment.center,
+              children: [
                 Expanded(
                     child: (_pixilatedResult != null) ? buildDebugTable(_pixilatedResult!.debugMatrix, _grayscaleLimit) : Container()
                 ),
-              ]
-            ),
-            SizedBox(height: 20),
-            // Slider for pixel size
-            PixelSlider(
-              value: _pixelSize.toDouble(),
-              onChanged: (val) {
-                setState(() {
-                  _pixelSize = val.toInt();
-                });
-              },
-            ),
-            RatioSlider(
-                value: _grayscaleLimit,
-                onChanged: (val) {
-                  setState(() {
-                    _grayscaleLimit = val;
-                  });
-                },
-            ),
-            Row(
-              mainAxisAlignment: MainAxisAlignment.center,
-              children: [
+                SizedBox(height: 20),
+                // Slider for pixel size
+                PixelSlider(
+                  value: _pixelSize.toDouble(),
+                  onChanged: (val) {
+                    setState(() {
+                      _pixelSize = val.toInt();
+                    });
+                  },
+                ),
+                RatioSlider(
+                  value: _grayscaleLimit,
+                  onChanged: (val) {
+                    setState(() {
+                      _grayscaleLimit = val;
+                    });
+                  },
+                ),
                 ElevatedButton(
                   onPressed: _pickImage,
                   child: Text("Choose Image"),
