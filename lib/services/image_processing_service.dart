@@ -1,19 +1,25 @@
 import 'dart:math' as math;
 import 'package:image/image.dart' as image;
-
-import '../models/hints.dart';
 import '../models/pixelate_result.dart';
 
 class ImageProcessingService {
   static image.Image toGrayScale(image.Image img) {
-    return image.grayscale(img);
+    image.Image origImg = img.clone();
+    return image.grayscale(origImg);
+  }
+
+  static image.Image filter(image.Image img, num hue, num saturation, num gamma) {
+    image.Image origImg = img.clone();
+    // Example: increase brightness + saturation
+    return image.adjustColor(origImg,
+      hue: hue,
+      saturation: saturation,
+      gamma: gamma
+    );
   }
 
   static PixelateResult pixelate(image.Image img, int width, double turningPoint) {
     int height = (img.height/(img.width / width)).toInt();
-    // setState(() {
-    //   _pixelImageHeight = height;
-    // });
     print('_pixilate ${img.width} x ${img.height} to $width * $height');
     image.Image result = image.Image(width: width, height: height);
     int rangeX = (img.width / width).round();
@@ -52,10 +58,6 @@ class ImageProcessingService {
         final double pixelColor = avg > turningPoint ? 255 : 0;
         result.setPixelRgb(x, y, pixelColor, pixelColor, pixelColor);
         debugMatrix[y][x] = [avg, pixelColorCombined];
-
-        // setState(() {
-        //   _progress += 1 / (pixelSize * height);
-        // });
       }
     }
 

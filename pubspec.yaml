@@ -8,6 +8,8 @@ environment:
 
 # Add regular dependencies here.
 dependencies:
+  flutter:
+    sdk: flutter
   web: ^1.1.1
   image: ^4.2.0         # For image processing (Dart native, works well)
   image_picker: ^1.1.2  # To pick images from gallery or camera

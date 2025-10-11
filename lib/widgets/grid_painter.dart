@@ -93,63 +93,71 @@ class GridPainter extends CustomPainter {
       textAlign: TextAlign.center,
       textDirection: TextDirection.ltr,
     );
-    for (int r = 0; r < rows; r++) {
-      final hints = rowHints[r];
-      for (int i = 0; i < hints.length; i++) {
-        textPainter.text = TextSpan(
-          text: hints[i].toString(),
-          style: TextStyle(color: Colors.black, fontSize: cellSize * 0.6),
+    if (rowHints.isNotEmpty) {
+      for (int r = 0; r < rows; r++) {
+        final hints = rowHints[r];
+        for (int i = 0; i < hints.length; i++) {
+          textPainter.text = TextSpan(
+            text: hints[i].toString(),
+            style: TextStyle(color: Colors.black, fontSize: cellSize * 0.6),
+          );
+          textPainter.layout(minWidth: cellSize, maxWidth: 30);
+          textPainter.paint(
+            canvas,
+            Offset(leftPadding - (hints.length - i) * cellSize, (r * cellSize) + topPadding),
+          );
+        }
+
+        double y = r * cellSize;
+        canvas.drawLine(
+          Offset(leftPadding, y + topPadding),
+          Offset(leftPadding-((hints.length * cellSize) + 5), y + topPadding),
+          r%5 == 0 ? borderPaint : paint,
         );
-        textPainter.layout(minWidth: cellSize, maxWidth: 30);
-        textPainter.paint(
-          canvas,
-          Offset(leftPadding - (hints.length - i) * cellSize, (r * cellSize) + topPadding),
+        canvas.drawLine(
+          Offset(leftPadding, y + cellSize + topPadding),
+          Offset(leftPadding-((hints.length * cellSize) + 5), y + cellSize + topPadding),
+          (r+1)%5 == 0 ? borderPaint : paint,
         );
       }
-
-      double y = r * cellSize;
-      canvas.drawLine(
-        Offset(leftPadding, y + topPadding),
-        Offset(leftPadding-((hints.length * cellSize) + 5), y + topPadding),
-          r%5 == 0 ? borderPaint : paint,
-      );
-      canvas.drawLine(
-        Offset(leftPadding, y + cellSize + topPadding),
-        Offset(leftPadding-((hints.length * cellSize) + 5), y + cellSize + topPadding),
-        (r+1)%5 == 0 ? borderPaint : paint,
-      );
     }
 
     // ✅ Draw column hints (above)
-    for (int c = 0; c < cols; c++) {
-      final hints = colHints[c];
-      for (int i = 0; i < hints.length; i++) {
-        textPainter.text = TextSpan(
-          text: hints[i].toString(),
-          style: TextStyle(color: Colors.black, fontSize: cellSize * 0.6),
+    if (colHints.isNotEmpty) {
+      for (int c = 0; c < cols; c++) {
+        final hints = colHints[c];
+        for (int i = 0; i < hints.length; i++) {
+          textPainter.text = TextSpan(
+            text: hints[i].toString(),
+            style: TextStyle(color: Colors.black, fontSize: cellSize * 0.6),
+          );
+          textPainter.layout(minWidth: cellSize, maxWidth: 30);
+          textPainter.paint(
+            canvas,
+            Offset((c * cellSize) + leftPadding, topPadding - (hints.length - i) * cellSize),
+          );
+        }
+
+        double x = c * cellSize;
+        canvas.drawLine(
+          Offset(x + leftPadding, topPadding),
+          Offset(x + leftPadding, topPadding-((hints.length * cellSize) + 5)),
+          c%5 == 0 ? borderPaint : paint,
         );
-        textPainter.layout(minWidth: cellSize, maxWidth: 30);
-        textPainter.paint(
-          canvas,
-          Offset((c * cellSize) + leftPadding, topPadding - (hints.length - i) * cellSize),
+        canvas.drawLine(
+          Offset(x + cellSize + leftPadding, topPadding),
+          Offset(x + cellSize + leftPadding, topPadding-((hints.length * cellSize) + 5)),
+          (c+1)%5 == 0 ? borderPaint : paint,
         );
       }
-
-      double x = c * cellSize;
-      canvas.drawLine(
-        Offset(x + leftPadding, topPadding),
-        Offset(x + leftPadding, topPadding-((hints.length * cellSize) + 5)),
-        c%5 == 0 ? borderPaint : paint,
-      );
-      canvas.drawLine(
-        Offset(x + cellSize + leftPadding, topPadding),
-        Offset(x + cellSize + leftPadding, topPadding-((hints.length * cellSize) + 5)),
-          (c+1)%5 == 0 ? borderPaint : paint,
-      );
     }
   }
 
   static num getHintsPadding(List<List<int>> hintList, cellSize) {
+    if (hintList.isEmpty) {
+      return 0;
+    }
+
     int maxHints = 0;
     for (var hints in hintList) {
       maxHints = math.max(hints.length, maxHints);
